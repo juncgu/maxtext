@@ -29,10 +29,14 @@ from input_pipeline import _tfds_data_processing_c4_mlperf
 import tokenizer
 import multihost_dataloading
 
-def get_tokenizer(tokenizer_path, add_bos=True, add_eos=True):
+def get_tokenizer(config, add_bos=True, add_eos=True):
+  tokenizer_path = config.tokenizer_path
   # Load tokenizer
-  sp_tokenizer = tokenizer.load_tokenizer(tokenizer_path=tokenizer_path, add_bos=add_bos, add_eos=add_eos)
-  return sp_tokenizer
+  if config.model_name[:6] == 'llama3':
+    tokenizer_model = tokenizer.Tokenizer(model_path=tokenizer_path)
+  else:
+    tokenizer_model = tokenizer.load_sentencepiece_tokenizer(tokenizer_path=tokenizer_path, add_bos=add_bos, add_eos=add_eos)
+  return tokenizer_model
 
 
 def make_c4_mlperf_train_iterator_and_tokenizer(config, mesh, add_bos, add_eos, process_indices):
@@ -42,7 +46,7 @@ def make_c4_mlperf_train_iterator_and_tokenizer(config, mesh, add_bos, add_eos, 
       dataloading_host_index=process_indices.index(jax.process_index()),
       dataloading_host_count=len(process_indices),
   )
-  sp_tokenizer = get_tokenizer(config.tokenizer_path, add_bos, add_eos)
+  sp_tokenizer = get_tokenizer(config, add_bos, add_eos)
   train_iter, eval_iter = _tfds_data_processing_c4_mlperf.preprocess_dataset(
       config, mesh, train_ds, eval_ds, sp_tokenizer, data_shuffle_seed=config.data_shuffle_seed
   )
@@ -60,7 +64,7 @@ def make_c4_train_iterator_and_tokenizer(config, mesh, add_bos, add_eos, process
       dataloading_host_count=len(process_indices),
       read_config=read_config,
   )
-  sp_tokenizer = get_tokenizer(config.tokenizer_path, add_bos, add_eos)
+  sp_tokenizer = get_tokenizer(config, add_bos, add_eos)
   train_iter, _, _ = _tfds_data_processing.preprocess_dataset(
       config,
       mesh,
@@ -75,7 +79,7 @@ def make_c4_train_iterator_and_tokenizer(config, mesh, add_bos, add_eos, process
 def make_grain_train_iterator_and_tokenizer(config, mesh, add_bos, add_eos, process_indices):
   """Make train iterator and tokenizer for C4 dataset"""
   train_ds, eval_ds = _grain_data_processing.get_datasets(config=config)
-  sp_tokenizer = get_tokenizer(config.tokenizer_path, add_bos, add_eos)
+  sp_tokenizer = get_tokenizer(config, add_bos, add_eos)
   train_iter, _, _ = _grain_data_processing.preprocess_dataset(
       config,
       dataloading_host_index=process_indices.index(jax.process_index()),
@@ -194,12 +198,12 @@ def make_mixed_train_iterator_and_tokenizer(config, mesh, add_bos, add_eos):
           config, mesh, add_bos=False, add_eos=False, process_indices=process_indices
       )
   else:
-    return BadSyntheticDataIterator(config, mesh), None, get_tokenizer(config.tokenizer_path, add_bos, add_eos)
+    return BadSyntheticDataIterator(config, mesh), None, get_tokenizer(config, add_bos, add_eos)
 
 
 def create_data_iterator_with_tokenizer(config, mesh, add_bos=True, add_eos=True):
   if config.dataset_type == "synthetic":
-    return SyntheticDataIterator(config, mesh), None, get_tokenizer(config.tokenizer_path, add_bos, add_eos)
+    return SyntheticDataIterator(config, mesh), None, get_tokenizer(config, add_bos, add_eos)
   elif config.dataset_type in ("c4", "c4-array_record", "c4_mlperf"):
     return make_mixed_train_iterator_and_tokenizer(config, mesh, add_bos, add_eos)
   else:
