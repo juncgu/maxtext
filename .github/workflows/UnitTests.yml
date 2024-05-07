@@ -27,6 +27,66 @@ on:
     - cron:  '0 */2 * * *'
 
 jobs:
+  common:
+    strategy:
+      fail-fast: False
+      matrix:
+        device:
+        - type: tpu
+          name: v4-8
+          image_suffix: jax_stable
+        - type: gpu
+          name: a100-40gb-4
+          image_suffix: gpu_jax_pinned
+          container_env:
+            XLA_PYTHON_CLIENT_MEM_FRACTION: 0.65
+            TF_FORCE_GPU_ALLOW_GROWTH: true
+          container_resource_option: "--shm-size 2g --runtime=nvidia --gpus all"
+    name: Common tests on ${{ matrix.device.type }}
+    runs-on: ["self-hosted", "${{ matrix.device.type }}", "${{ matrix.device.name }}"]
+
+    container:
+      image: gcr.io/tpu-prod-env-multipod/maxtext_${{ matrix.device.image_suffix }}:latest
+      volumes: /home/runner/actions-runner/_work/maxtext/maxtext:/deps
+      env:
+        XLA_PYTHON_CLIENT_MEM_FRACTION: ${{ device.container_env.XLA_PYTHON_CLIENT_MEM_FRACTION }}
+        TF_FORCE_GPU_ALLOW_GROWTH: ${{ device.container_env.TF_FORCE_GPU_ALLOW_GROWTH }}
+        options: ${{ device.container_resource_option }}
+    steps:
+    - uses: actions/checkout@v3
+    - name: Test gsutil installation
+      run: which gsutil >/dev/null 2>&1 || { echo >&2 "gsutil is required but not installed. Aborting"; exit 24;}
+    - name: Test with pytest
+      run: cd MaxText;python3 -m pytest -m "not tpu"
+    - name: Test train.py with c4
+      run: |
+        python3 MaxText/train.py MaxText/configs/base.yml run_name=runner_$(date +%Y-%m-%d-%H-%M)-${RANDOM} 
+        base_output_directory=gs://runner-maxtext-logs dataset_path=gs://maxtext-dataset steps=2 enable_checkpointing=false attention=dot_product
+    - name: Test train.py with synthetic data
+      run: python3 MaxText/train.py MaxText/configs/base.yml run_name=runner_$(date +%Y-%m-%d-%H-%M)-${RANDOM} base_output_directory=gs://runner-maxtext-logs dataset_path=gs://maxtext-dataset steps=2 enable_checkpointing=false attention=dot_product dataset_type=synthetic
+    - name: Test train.py with flash attention
+      run: python3 MaxText/train.py MaxText/configs/base.yml run_name=runner_$(date +%Y-%m-%d-%H-%M)-${RANDOM} base_output_directory=gs://runner-maxtext-logs dataset_path=gs://maxtext-dataset steps=2 enable_checkpointing=false attention=cudnn_flash_te
+    - name: Test train.py with per_device_batch_size < 1
+      run: python3 MaxText/train.py MaxText/configs/base.yml run_name=runner_$(date +%Y-%m-%d-%H-%M)-${RANDOM} base_output_directory=gs://runner-maxtext-logs dataset_path=gs://maxtext-dataset steps=2 per_device_batch_size=0.25 ici_tensor_parallelism=4 enable_checkpointing=false attention=dot_product
+    - name: Test decode.py
+      run: python3 MaxText/decode.py MaxText/configs/base.yml run_name=runner_$(date +%Y-%m-%d-%H-%M)-${RANDOM} base_output_directory=gs://runner-maxtext-logs dataset_path=gs://maxtext-dataset steps=2 ici_tensor_parallelism=4 attention=dot_product enable_checkpointing=false max_target_length=128 per_device_batch_size=1
+    - name: Test decode.py with per_device_batch_size < 1
+      run: python3 MaxText/decode.py MaxText/configs/base.yml run_name=runner_$(date +%Y-%m-%d-%H-%M)-${RANDOM} base_output_directory=gs://runner-maxtext-logs dataset_path=gs://maxtext-dataset steps=2 ici_tensor_parallelism=4 attention=dot_product enable_checkpointing=false max_target_length=128 per_device_batch_size=.25
+    - name: Test int8_training
+      run: python3 MaxText/train.py MaxText/configs/base.yml run_name=runner_$(date +%Y-%m-%d-%H-%M)-${RANDOM} base_output_directory=gs://runner-maxtext-logs dataset_path=gs://maxtext-dataset quantization=int8 steps=2 enable_checkpointing=false attention=dot_product
+    - name: Test fp8_training
+      run: python3 MaxText/train.py MaxText/configs/base.yml run_name=runner_$(date +%Y-%m-%d-%H-%M)-${RANDOM} base_output_directory=gs://runner-maxtext-logs dataset_path=gs://maxtext-dataset quantization=fp8 steps=2 enable_checkpointing=false attention=dot_product
+    - name: Test generate_param_only_checkpoint
+      run: bash end_to_end/test_generate_param_only_checkpoint.sh -r runner_$(date +%Y-%m-%d-%H-%M)-${RANDOM} -o gs://runner-maxtext-logs -d gs://maxtext-dataset -i 4 -a dot_product
+    - name: Test generate_param_only_checkpoint with int8 quantization
+      run: bash end_to_end/test_generate_param_only_checkpoint.sh -r runner_$(date +%Y-%m-%d-%H-%M)-${RANDOM} -o gs://runner-maxtext-logs -d gs://maxtext-dataset -i 4 -q int8 -a dot_product
+    - name: Test grain checkpoint determinism
+      run: bash end_to_end/test_checkpointing.sh runner gs://runner-maxtext-logs gs://maxtext-dataset False c4-array_record dot_product
+    - name: Test checkpoint compatibility
+      run: bash end_to_end/test_checkpoint_compatibility.sh runner gs://runner-maxtext-logs gs://maxtext-dataset dot_product
+
+
+jobs:
   # IF YOU MODIFY THIS, YOU SHOULD ALSO ADD CORRESPONDING MODIFICATIONS TO 'gpu' job
   tpu:
     strategy:
