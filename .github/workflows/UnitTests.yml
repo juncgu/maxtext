@@ -50,9 +50,9 @@ jobs:
     container:
       image: gcr.io/tpu-prod-env-multipod/maxtext_${{ matrix.device.image_suffix }}:latest
       volumes: /home/runner/actions-runner/_work/maxtext/maxtext:/deps
-      env:
-        XLA_PYTHON_CLIENT_MEM_FRACTION: ${{ device.container_env.XLA_PYTHON_CLIENT_MEM_FRACTION }}
-        TF_FORCE_GPU_ALLOW_GROWTH: ${{ device.container_env.TF_FORCE_GPU_ALLOW_GROWTH }}
+      # env:
+      #   XLA_PYTHON_CLIENT_MEM_FRACTION: ${{ device.container_env.XLA_PYTHON_CLIENT_MEM_FRACTION }}
+      #   TF_FORCE_GPU_ALLOW_GROWTH: ${{ device.container_env.TF_FORCE_GPU_ALLOW_GROWTH }}
       options: ${{ device.container_resource_option }}
     steps:
     - uses: actions/checkout@v3
