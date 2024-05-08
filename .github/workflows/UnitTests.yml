@@ -35,7 +35,7 @@ jobs:
         - type: tpu
           name: v4-8
           image_suffix: jax_stable
-          attention: flash
+          attention: autoselected
           container_env:
             XLA_PYTHON_CLIENT_MEM_FRACTION: 0.75
             TF_FORCE_GPU_ALLOW_GROWTH: false
