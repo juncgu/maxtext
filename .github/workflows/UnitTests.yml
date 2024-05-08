@@ -49,7 +49,8 @@ jobs:
 
     container:
       image: gcr.io/tpu-prod-env-multipod/maxtext_${{ matrix.device.image_suffix }}:latest
-      volumes: /home/runner/actions-runner/_work/maxtext/maxtext:/deps
+      volumes: 
+        - /home/runner/actions-runner/_work/maxtext/maxtext:/deps
       env:
         XLA_PYTHON_CLIENT_MEM_FRACTION: ${{ matrix.device.container_env.XLA_PYTHON_CLIENT_MEM_FRACTION }}
         TF_FORCE_GPU_ALLOW_GROWTH: ${{ matrix.device.container_env.TF_FORCE_GPU_ALLOW_GROWTH }}
@@ -96,7 +97,8 @@ jobs:
     runs-on: ["self-hosted", "tpu", "${{ matrix.device-type }}"]
     container:
       image: gcr.io/tpu-prod-env-multipod/maxtext_jax_stable:latest
-      volumes: /home/runner/actions-runner/_work/maxtext/maxtext:/deps
+      volumes: 
+      - /home/runner/actions-runner/_work/maxtext/maxtext:/deps
     steps:
     - uses: actions/checkout@v3
     - name: Test with pytest
@@ -114,7 +116,8 @@ jobs:
     runs-on: ["self-hosted", "gpu", "${{ matrix.device-type }}"]
     container:
       image: gcr.io/tpu-prod-env-multipod/maxtext_gpu_jax_pinned:latest
-      volumes: /home/runner/actions-runner/_work/maxtext/maxtext:/deps
+      volumes: 
+      - /home/runner/actions-runner/_work/maxtext/maxtext:/deps
       env:
         XLA_PYTHON_CLIENT_MEM_FRACTION: 0.65
         TF_FORCE_GPU_ALLOW_GROWTH: true
