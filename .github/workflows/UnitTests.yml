@@ -36,6 +36,10 @@ jobs:
           name: v4-8
           image_suffix: jax_stable
           attention: flash
+          container_env:
+            XLA_PYTHON_CLIENT_MEM_FRACTION: ''
+            TF_FORCE_GPU_ALLOW_GROWTH: ''
+          container_resource_option: ''
         - type: gpu
           name: a100-40gb-4
           image_suffix: gpu_jax_pinned
