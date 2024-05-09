@@ -30,6 +30,8 @@ from jax.sharding import PartitionSpec as P
 import common_types
 from jetstream.engine import engine_api
 from jetstream.engine import tokenizer_pb2
+from jetstream.engine import tokenizer_api
+from jetstream.engine import token_utils
 
 import max_utils
 import inference_utils

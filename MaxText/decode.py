@@ -34,18 +34,12 @@ def main(config):
   params = engine.load_params()
 
   text = config.prompt
-  # metadata = engine.get_tokenizer()
-  # vocab = token_utils.load_vocab(metadata.path, metadata.extra_ids)
-  # tokenizer = vocab.tokenizer
-  # tokens, true_length = token_utils.tokenize_and_pad(
-  #     text, vocab, is_bos=True, prefill_lengths=[config.max_prefill_predict_length]
-  # )
-  tokenizer = Tokenizer(model_path=config.tokenizer_path)
-  tokens = tokenizer.encode(text, bos=True, eos=False)
-  true_length = len(tokens)
-  pad_id = tokenizer.pad_id
-  tokens.extend([pad_id] * (config.max_prefill_predict_length - len(tokens)))
-  tokens = jnp.array(tokens)
+  metadata = engine.get_tokenizer()
+  vocab = token_utils.load_vocab(metadata.path, metadata.extra_ids)
+  tokenizer = vocab.tokenizer
+  tokens, true_length = token_utils.tokenize_and_pad(
+      text, vocab, is_bos=True, prefill_lengths=[config.max_prefill_predict_length]
+  )
   assert tokens.size <= config.max_prefill_predict_length, "can't take too many tokens"
   assert config.quantization != "fp8", "fp8 on NVIDIA GPUs is not supported in decode.py yet"
   prefill_result = engine.prefill(params=params, padded_tokens=tokens, true_length=true_length)
