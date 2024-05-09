@@ -48,7 +48,7 @@ jobs:
             XLA_PYTHON_CLIENT_MEM_FRACTION: 0.65
             TF_FORCE_GPU_ALLOW_GROWTH: true
           container_resource_option: "--shm-size 2g --runtime=nvidia --gpus all --privileged"
-    name: Common test (${{ matrix.device.type }})
+    name: Common test (${{ matrix.device.name }})
     runs-on: ["self-hosted", "${{ matrix.device.type }}", "${{ matrix.device.name }}"]
 
     container:
@@ -99,8 +99,8 @@ jobs:
       - /home/runner/actions-runner/_work/maxtext/maxtext:/deps
     steps:
     - uses: actions/checkout@v3
-    # - name: Test with pytest
-    #   run: cd MaxText;python3 -m pytest
+    - name: Test with pytest
+      run: cd MaxText;python3 -m pytest
     - name: Validate Pedagogical Example, Shmap_collective_matmul
       run: python3 pedagogical_examples/shmap_collective_matmul.py
 
