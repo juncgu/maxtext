@@ -19,6 +19,7 @@ import datetime
 import jax
 import json
 import sys
+import os
 
 from jetstream.engine import token_utils
 import max_utils
@@ -148,24 +149,25 @@ def collate_results(config, results, model_size, cache_size, num_model_params, i
 
 def write_results(results, filename=""):
   if filename != "":
-    with open(filename, "w", encoding="utf-8") as f:
+    with open(filename, "a", encoding="utf-8") as f:
       json.dump(results, f, indent=2)
 
 
-def print_results_for_analyze(results):
+def print_results_for_analyze(config, results):
   prefill_bucket_size_to_ms = {}
   for k, v in results["Prefill"].items():
     prefill_bucket_size_to_ms[int(k)] = round(v["prefill_time_in_ms"], 3)
   print("\nFor usage in analyze_sharegpt.py :")
-  print(f"PREFILL_BUCKET_SIZE_TO_MS = {prefill_bucket_size_to_ms}")
-  print(f"SYSTEM_TIME_PER_DECODE_TOKEN_MS = {results['AutoRegressive']['ar_step_in_ms_per_seq']}")
+  print(f"{config.run_name}-PREFILL_BUCKET_SIZE_TO_MS = {prefill_bucket_size_to_ms}")
+  print(f"{config.run_name}-SYSTEM_TIME_PER_DECODE_STEP_MS = {results['AutoRegressive']['ar_step_in_ms_per_seq']}")
+  print(f"{config.run_name}-SYSTEM_TIME_PER_DECODE_STEP_MS = {results['AutoRegressive']['ar_step_in_ms']}")
 
 
 def main(config):
   engine = maxengine.MaxEngine(config)
   params = engine.load_params()
-  prefill_lengths = [64, 128, 256, 512, 1024]
-  benchmark_loop_iters = 10
+  prefill_lengths = [32, 64, 128, 256, 512, 1024]
+  benchmark_loop_iters = int(config.generate_length)
   text = config.prompt
   metadata = engine.get_tokenizer()
   vocab = token_utils.load_vocab(metadata.path, metadata.extra_ids)
@@ -185,8 +187,11 @@ def main(config):
       iters=benchmark_loop_iters, num_model_params=num_model_params)
 
   results = collate_results(config, benchmark_results, model_size, cache_size, num_model_params)
-  write_results(results, filename="")
-  print_results_for_analyze(results)
+
+  if config.output_dir is not None:
+    file_name = os.path.join(os.getcwd(), config.output_dir, f"{config.run_name}.log")
+    write_results(results, filename=file_name)
+  print_results_for_analyze(config, results)
 
 
 if __name__ == "__main__":
